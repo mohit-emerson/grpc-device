@@ -330,6 +330,13 @@ enums = {
                 },
                 'name': 'VECTOR',
                 'value': 3902
+            },
+            {
+                'documentation': {
+                    'description': ' De-embeds the measurement using wideband amplitude flatness correction.'
+                },
+                'name': 'AMPLITUDE_FLATNESS',
+                'value': 3903
             }
         ]
     },

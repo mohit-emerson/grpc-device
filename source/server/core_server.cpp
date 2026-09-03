@@ -5,7 +5,9 @@
 
 #include <mutex>
 #include <thread>
+#include <algorithm>
 
+#include "client_connection_logger.h"
 #include "feature_toggles.h"
 #include "logging.h"
 #include "tls_config_loader.h"
@@ -98,6 +100,8 @@ static void RunServer(const ServerConfiguration& config)
         config.config_file_path.c_str());
   }
 
+  nidevice_grpc::register_client_connection_logger();
+
   grpc::EnableDefaultHealthCheckService(true);
   grpc::reflection::InitProtoReflectionServerBuilderPlugin();
 
@@ -169,6 +173,22 @@ static void RunServer(const ServerConfiguration& config)
   }
 
   nidevice_grpc::logging::log(nidevice_grpc::logging::Level_Info, "Server listening on port %d", listeningPort);
+
+  if (server_security_config.is_insecure_credentials()) {
+    auto address_lower = config.server_address;
+    std::transform(address_lower.begin(), address_lower.end(), address_lower.begin(), ::tolower);
+    bool is_loopback = address_lower.find("localhost") != std::string::npos ||
+                       address_lower.find("127.0.0.1") != std::string::npos ||
+                       address_lower.find("[::1]") != std::string::npos;
+    if (!is_loopback) {
+      nidevice_grpc::logging::log(
+          nidevice_grpc::logging::Level_Warning,
+          "WARNING: Server is using insecure credentials on a non-loopback address (%s). "
+          "All RPCs are accessible without authentication. Consider configuring TLS or "
+          "binding to a loopback address.",
+          config.server_address.c_str());
+    }
+  }
 
   const char* security_description = server_security_config.is_insecure_credentials()
       ? "insecure credentials"
@@ -293,8 +313,9 @@ int main(int argc, char** argv)
   auto config = GetConfiguration(options.config_file_path);
   setlocale(LC_ALL, "");
 #if defined(__GNUC__)
+  // syslog is always needed for audit logging even when general output goes to the terminal
+  nidevice_grpc::logging::setup_syslog(options.daemonize, options.identity);
   if (options.use_syslog) {
-    nidevice_grpc::logging::setup_syslog(options.daemonize, options.identity);
     nidevice_grpc::logging::set_logger(&nidevice_grpc::logging::log_syslog);
   }
 
@@ -305,6 +326,8 @@ int main(int argc, char** argv)
 #if defined(_WIN32)
   nidevice_grpc::set_console_ctrl_handler(&StopServer);
 #endif
+
+  nidevice_grpc::register_grpc_log_sink();
 
   RunServer(config);
   return EXIT_SUCCESS;
