@@ -1539,7 +1539,7 @@ ViStatus _VI_FUNC niRFSG_DeleteAllDeembeddingTables(
 
 ViStatus _VI_FUNC niRFSG_EnableCalibrationPlane(
    ViSession vi,
-   ViConstString channelName); 
+   ViConstString channelName);
 
 ViStatus _VI_FUNC niRFSG_DisableCalibrationPlane(
    ViSession vi,
